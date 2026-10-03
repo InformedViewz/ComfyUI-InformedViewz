@@ -4,7 +4,7 @@
 import os
 import json
 import datetime
-from PIL import Image, PngImagePlugin, ImageSequence, ImageOps
+from PIL import Image, ImageSequence, ImageOps
 import numpy as np
 import torch
 from comfy.comfy_types import ComfyNodeABC
@@ -88,7 +88,6 @@ class iv_ImageMetadataSaver(ComfyNodeABC):
         self.output_dir = folder_paths.get_output_directory()
         self.type = "output"
         self.prefix_append = ""
-        self.compress_level = 4
 
     @classmethod
     def INPUT_TYPES(s):
@@ -96,7 +95,8 @@ class iv_ImageMetadataSaver(ComfyNodeABC):
             "required": {
                 "images": ("IMAGE", {"tooltip": "The images to save."}),
                 "filename_prefix": ("STRING", {"default": "ComfyUI", "tooltip": "The prefix for the file to save. Supports: %date:yyyy-MM-dd%, %date:yyyy-MM%, %date:yyyy%, %date:MM%, %date:dd%, %time:HH-mm-ss%, %time:HH%, %time:mm%, %time:ss%, %datetime:full% (filename only)."}),
-                "subdirectory_name": ("STRING", {"default": "", "tooltip": "Optional subdirectory. Avoid using %datetime:full% here to prevent excessive nesting."})
+                "subdirectory_name": ("STRING", {"default": "", "tooltip": "Optional subdirectory. Avoid using %datetime:full% here to prevent excessive nesting."}),
+                "Quality": ("INT", {"default": 93, "min": 0, "max": 100, "step": 1})
             },
             "optional": {
                 "metadata": ("METADATA", {})
@@ -107,9 +107,9 @@ class iv_ImageMetadataSaver(ComfyNodeABC):
     FUNCTION = "save_images"
     OUTPUT_NODE = True
     CATEGORY = "image"
-    DESCRIPTION = "Saves PNG images with metadata. Developed by Light_x02."
+    DESCRIPTION = "Saves WebP images with metadata. Developed by Light_x02."
 
-    def save_images(self, images, metadata=None, filename_prefix="ComfyUI", subdirectory_name=""):
+    def save_images(self, images, metadata={}, filename_prefix="ComfyUI", subdirectory_name="", Quality=93):
         if metadata is None:
             metadata = {}
 
@@ -151,16 +151,19 @@ class iv_ImageMetadataSaver(ComfyNodeABC):
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
 
-            pnginfo = PngImagePlugin.PngInfo()
+            text_metadata = {}
             for key, value in metadata.items():
                 if not isinstance(key, str) or isinstance(value, (bytes, bytearray)):
                     continue
-                pnginfo.add_text(key, value if isinstance(value, str) else json.dumps(value))
+                text_metadata[key] = value if isinstance(value, str) else json.dumps(value)
+
+            exif = Image.Exif()
+            exif[0x010E] = json.dumps(text_metadata)
 
             filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
-            file = f"{filename_with_batch_num}_{counter:05}_.png"
+            file = f"{filename_with_batch_num}_{counter:05}_.webp"
 
-            img.save(os.path.join(full_output_folder, file), pnginfo=pnginfo, compress_level=self.compress_level)
+            img.save(os.path.join(full_output_folder, file), format="WEBP", quality=Quality, exif=exif.tobytes())
             results.append({
                 "filename": file,
                 "subfolder": os.path.relpath(full_output_folder, self.output_dir) if full_output_folder != self.output_dir else "",
@@ -388,7 +391,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "InformedViewz Image Savers": "PNG Image Saver with Metadata",
+    "InformedViewz Image Savers": "WebP Image Saver with Metadata",
     "InformedViewz Image Loaders": "Image Loader with Metadata and Filename"
 }
 
