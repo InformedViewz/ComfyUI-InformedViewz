@@ -9,7 +9,7 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "InformedViewz Image Sizes": "Image Size Selector",
-    "InformedViewz Image Savers": "WebP Image Saver with Metadata",
+    "InformedViewz Image Savers": "PNG Image Saver with Metadata",
     "InformedViewz Image Loaders": "Image Loader with Metadata and Filename",
 }
 
